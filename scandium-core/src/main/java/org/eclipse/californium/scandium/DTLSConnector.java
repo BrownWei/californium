@@ -102,6 +102,7 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -198,6 +199,8 @@ public class DTLSConnector implements Connector {
 	 */
 	private static final int DEFAULT_EXECUTOR_THREAD_POOL_SIZE = 6 * Runtime.getRuntime().availableProcessors();
 
+	private static final int DEFAULT_RECEIVER_THREADS = (Runtime.getRuntime().availableProcessors() + 1 )/ 2;
+
 	/** all the configuration options for the DTLS connector */ 
 	private final DtlsConnectorConfig config;
 
@@ -222,9 +225,6 @@ public class DTLSConnector implements Connector {
 	/** The timer daemon to schedule retransmissions. */
 	private ScheduledExecutorService timer;
 
-	/** The thread that receives messages */
-	private Worker receiver;
-
 	/** Indicates whether the connector has started and not stopped yet */
 	private AtomicBoolean running = new AtomicBoolean(false);
 
@@ -243,6 +243,7 @@ public class DTLSConnector implements Connector {
 	private SessionListener sessionCacheSynchronization;
 	private ExecutorService executor;
 	private boolean hasInternalExecutor;
+	private List<Thread> receiverThreads;
 
 	/**
 	 * Creates a DTLS connector from a given configuration object
@@ -512,19 +513,30 @@ public class DTLSConnector implements Connector {
 		lastBindAddress = new InetSocketAddress(socket.getLocalAddress(), socket.getLocalPort());
 		running.set(true);
 
-		receiver = new Worker("DTLS-Receiver-" + lastBindAddress) {
+		int receiverThreadCount;
+		if (config.getReceiverThreadCount() == null) {
+			receiverThreadCount = DEFAULT_RECEIVER_THREADS;
+		} else {
+			receiverThreadCount = config.getReceiverThreadCount();
+		}
+		receiverThreads = new LinkedList<Thread>();
+		for (int i = 0; i < receiverThreadCount; i++) {
+			Worker receiver = new Worker("DTLS-Receiver-" + i + "-" + lastBindAddress) {
 
-			private final byte[] receiverBuffer = new byte[inboundDatagramBufferSize];
-			private final DatagramPacket packet = new DatagramPacket(receiverBuffer, inboundDatagramBufferSize);
+				private final byte[] receiverBuffer = new byte[inboundDatagramBufferSize];
+				private final DatagramPacket packet = new DatagramPacket(receiverBuffer, inboundDatagramBufferSize);
 
-			@Override
-			public void doWork() throws Exception {
-				packet.setData(receiverBuffer);
-				receiveNextDatagramFromNetwork(packet);
-			}
-		};
-		receiver.setDaemon(true);
-		receiver.start();
+				@Override
+				public void doWork() throws Exception {
+					packet.setData(receiverBuffer);
+					receiveNextDatagramFromNetwork(packet);
+				}
+			};
+			receiver.setDaemon(true);
+			receiver.start();
+			receiverThreads.add(receiver);
+		}
+
 		LOGGER.info(
 				"DTLS connector listening on [{}] with MTU [{}] using (inbound) datagram buffer size [{} bytes]",
 				lastBindAddress, maximumTransmissionUnit, inboundDatagramBufferSize);
@@ -600,8 +612,14 @@ public class DTLSConnector implements Connector {
 					executor = null;
 					hasInternalExecutor = false;
 				}
+				if (receiverThreads != null) {
+					for (Thread t : receiverThreads) {
+						t.interrupt();
+					}
+					receiverThreads.clear();
+					receiverThreads = null;
+				}
 				releaseSocket();
-				receiver.interrupt();
 			}
 		}
 		if (shutdown != null) {

@@ -142,6 +142,8 @@ public final class DtlsConnectorConfig {
 
 	private Integer connectionThreadCount;
 
+	private Integer receiverThreadCount;
+
 	/**
 	 * Automatic session resumption timeout. Triggers session resumption
 	 * automatically, if no messages are exchanged for this timeout. Intended to
@@ -396,6 +398,18 @@ public final class DtlsConnectorConfig {
 	 */
 	public Integer getConnectionThreadCount() {
 		return connectionThreadCount;
+	}
+
+	/**
+	 * Gets the number of threads which should be use to receive datagrams
+	 * from the socket.
+	 * <p>
+	 * The default value is half of <em>#(CPU cores)</em>.
+	 * 
+	 * @return the number of threads.
+	 */
+	public Integer getReceiverThreadCount() {
+		return receiverThreadCount;
 	}
 
 	/**
@@ -902,6 +916,20 @@ public final class DtlsConnectorConfig {
 		 */
 		public Builder setConnectionThreadCount(int threadCount) {
 			config.connectionThreadCount = threadCount;
+			return this;
+		}
+
+		/**
+		 * Set the number of thread which should be used to receive
+		 * datagrams from the socket.
+		 * <p>
+		 * The default value is half of <em>#(CPU cores)</em>.
+		 * 
+		 * @param threadCount the number of threads.
+		 * @return this builder for command chaining.
+		 */
+		public Builder setReceiverThreadCount(int threadCount) {
+			config.receiverThreadCount = threadCount;
 			return this;
 		}
 

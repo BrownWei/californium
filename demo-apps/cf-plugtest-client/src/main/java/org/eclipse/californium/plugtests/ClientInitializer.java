@@ -183,6 +183,7 @@ public class ClientInitializer {
 				dtlsConfig.setClientOnly();
 				dtlsConfig.setMaxConnections(maxPeers);
 				dtlsConfig.setConnectionThreadCount(1);
+				dtlsConfig.setReceiverThreadCount(1);
 				dtlsConfig.setStaleConnectionThreshold(staleTimeout);
 				connector = new DTLSConnector(dtlsConfig.build());
 			} else if (arguments.uri.startsWith(CoAP.COAP_SECURE_TCP_URI_SCHEME + "://")) {
