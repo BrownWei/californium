@@ -69,6 +69,9 @@ public class ExtendedTestServer extends AbstractTestServer {
 			config.setInt(Keys.TCP_CONNECTION_IDLE_TIMEOUT, 60 * 60 * 12); // 12h
 			config.setInt(Keys.SECURE_SESSION_TIMEOUT, 60 * 60 * 24); // 24h
 			config.setInt(Keys.HEALTH_STATUS_INTERVAL, 60); // 60s
+			int processors = Runtime.getRuntime().availableProcessors();
+			config.setInt(Keys.NETWORK_STAGE_RECEIVER_THREAD_COUNT, processors/2);
+			config.setInt(Keys.NETWORK_STAGE_SENDER_THREAD_COUNT, processors);
 		}
 
 	};
